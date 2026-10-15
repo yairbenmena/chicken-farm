@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yahav's Chicken Farm</title>
+<style>
+  :root {
+    --sky: #bfe6ff; --grass: #8fd16a; --grass-dark: #6db34a; --wood: #b07a46; --wood-dark: #7d5330;
+    --panel: #fff8e8; --ink: #3b2a1a; --accent: #f59e0b; --good: #16a34a; --bad: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Trebuchet MS", system-ui, sans-serif; color: var(--ink);
+    background: linear-gradient(var(--sky), #e8f6ff 240px, var(--grass) 240px); min-height: 100vh;
+    user-select: none; -webkit-user-select: none;
+  }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; }
+  h1 { margin: 0; font-size: 1.6rem; text-shadow: 2px 2px 0 #fff; }
+  h1 span { color: var(--accent); }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat { background: var(--panel); border: 3px solid var(--wood-dark); border-radius: 12px; padding: 4px 10px; font-weight: bold; }
+  main { display: grid; grid-template-columns: 1fr 340px; gap: 12px; padding: 0 16px 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 4px solid var(--wood-dark); border-radius: 16px; padding: 10px; box-shadow: 0 4px 0 var(--wood-dark); }
+  .panel h2 { margin: 0 0 8px; font-size: 1.1rem; }
+  .col { display: flex; flex-direction: column; gap: 12px; }
+
+  /* Coop */
+  #coop { position: relative; height: 380px; border-radius: 16px; overflow: hidden; border: 4px solid var(--wood-dark);
+    background: repeating-linear-gradient(90deg, var(--grass) 0 40px, var(--grass-dark) 40px 42px); box-shadow: 0 4px 0 var(--wood-dark); }
+  #coop .barn { position: absolute; left: 8px; top: 8px; font-size: 13px; background: var(--wood); color: #fff; padding: 4px 8px; border-radius: 8px; font-weight: bold; }
+  .chicken { position: absolute; width: 70px; height: 76px; cursor: pointer; transition: left 1.8s ease-in-out, top 1.8s ease-in-out; }
+  .chicken.chick { width: 46px; height: 50px; }
+  .chicken svg { width: 100%; height: 60px; display: block; }
+  .chicken.chick svg { height: 38px; }
+  .chicken.flip svg { transform: scaleX(-1); }
+  .chicken.selected svg { filter: drop-shadow(0 0 6px #ffeb3b) drop-shadow(0 0 3px #ffeb3b); }
+  .bars { display: flex; gap: 2px; }
+  .bar { flex: 1; height: 6px; background: #0003; border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; }
+  .bar.food i { background: #f59e0b; } .bar.water i { background: #3b82f6; } .bar.egg i { background: #ec4899; } .bar.grow i { background: #22c55e; }
+  .mood { position: absolute; top: -6px; right: -4px; font-size: 18px; }
+  .ground-egg { position: absolute; width: 28px; height: 34px; cursor: pointer; animation: pop .4s; }
+  @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
+  .float { position: absolute; font-weight: bold; pointer-events: none; animation: up 1s forwards; z-index: 10; text-shadow: 1px 1px 0 #fff; }
+  @keyframes up { to { transform: translateY(-40px); opacity: 0; } }
+
+  /* Toolbar */
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  button { font: inherit; font-weight: bold; border: 3px solid var(--wood-dark); background: #ffe7b3; color: var(--ink);
+    border-radius: 12px; padding: 8px 12px; cursor: pointer; box-shadow: 0 3px 0 var(--wood-dark); }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dark); }
+  button.active { background: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Eggs */
+  .egg { width: 26px; height: 32px; display: inline-block; cursor: pointer; }
+  .egg svg { width: 100%; height: 100%; }
+  .egg.selected svg { filter: drop-shadow(0 0 5px #f59e0b) drop-shadow(0 0 3px #f59e0b); transform: translateY(-4px); }
+  #basket { min-height: 48px; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: #e9c891; border-radius: 10px; border: 3px dashed var(--wood-dark); }
+  .hint { font-size: .85rem; opacity: .8; margin: 6px 0 0; }
+
+  .piles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pile { background: #d9b27c; border: 3px solid var(--wood-dark); border-radius: 12px; padding: 6px; min-height: 110px; cursor: pointer; text-align: center; }
+  .pile.target { outline: 4px solid #ffeb3b; }
+  .pile .stack { display: flex; flex-wrap: wrap-reverse; justify-content: center; gap: 2px; min-height: 70px; align-content: flex-start; }
+  .pile .stack .egg { width: 20px; height: 25px; cursor: default; }
+
+  .order { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: #fff; border: 2px solid var(--wood); border-radius: 10px; padding: 6px 8px; margin-bottom: 6px; }
+  .order .need { font-weight: bold; }
+  .order .reward { color: var(--good); font-weight: bold; }
+
+  .inc-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .slot { background: #fde2e2; border: 3px solid #b45454; border-radius: 12px; padding: 6px; text-align: center; cursor: pointer; min-height: 120px; }
+  .slot.target { outline: 4px solid #ffeb3b; }
+  .slot .heat { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #60a5fa 0 35%, #4ade80 35% 75%, #ef4444 75%); position: relative; margin: 4px 0; }
+  .slot .heat b { position: absolute; top: -3px; width: 4px; height: 16px; background: #000; border-radius: 2px; }
+  .slot .prog { height: 8px; background: #0002; border-radius: 4px; overflow: hidden; } .slot .prog i { display: block; height: 100%; background: #ec4899; }
+  .slot button { padding: 4px 8px; margin-top: 4px; font-size: .85rem; }
+
+  .missions li { margin: 3px 0; } .missions li.done { color: var(--good); text-decoration: line-through; }
+  .shop { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .shop button { font-size: .85rem; padding: 6px; }
+
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 50; max-width: 90vw; text-align: center; }
+  #toast.show { opacity: 1; }
+  #overlay { position: fixed; inset: 0; background: #0007; display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  #overlay .panel { max-width: 520px; }
+  #overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐔 <span>YAHAV</span>'s Chicken Farm</h1>
+  <div class="stats">
+    <div class="stat">🪙 <span id="coins">0</span></div>
+    <div class="stat">🌾 <span id="feed">0</span></div>
+    <div class="stat">💧 <span id="water">0</span></div>
+    <div class="stat">🐔 <span id="ccount">0</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="col">
+    <div>
+      <div id="coop"><div class="barn">🏠 Yahav's Coop</div></div>
+      <div class="tools">
+        <button id="tool-feed" class="active">🌾 Feed tool</button>
+        <button id="tool-water">💧 Water tool</button>
+        <button id="feed-all">🌾 Feed all hungry</button>
+        <button id="water-all">💧 Water all thirsty</button>
+      </div>
+      <p class="hint">Pick a tool, then click a chicken. Happy (fed + watered) chickens lay eggs — dark chickens lay ⚫ black eggs, white chickens lay ⚪ white eggs. Click eggs on the ground to collect them.</p>
+    </div>
+
+    <div class="panel">
+      <h2>🧺 Egg basket <small id="bcount"></small></h2>
+      <div id="basket"></div>
+      <p class="hint">Click an egg in the basket, then click a pile or an incubator slot to put it there.</p>
+    </div>
+
+    <div class="panel">
+      <h2>🥚 Egg piles</h2>
+      <div class="piles">
+        <div class="pile" data-pile="black"><b>⚫ Black pile</b><div class="stack" id="pile-black"></div><small id="pc-black"></small></div>
+        <div class="pile" data-pile="white"><b>⚪ White pile</b><div class="stack" id="pile-white"></div><small id="pc-white"></small></div>
+      </div>
+      <p class="hint">Careful! A wrong-colour egg in a pile cracks 💥.</p>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <h2>🎯 Missions</h2>
+      <ol class="missions" id="missions"></ol>
+    </div>
+    <div class="panel">
+      <h2>📋 Orders</h2>
+      <div id="orders"></div>
+    </div>
+    <div class="panel">
+      <h2>🔥 Incubator</h2>
+      <div class="inc-slots" id="incubator"></div>
+      <p class="hint">Keep the heat in the 🟩 green zone with 🔥 Warm until the egg hatches into a chick. Then feed &amp; water the chick until it grows up!</p>
+    </div>
+    <div class="panel">
+      <h2>🛒 Shop</h2>
+      <div class="shop">
+        <button data-buy="feed">🌾 +5 feed (4🪙)</button>
+        <button data-buy="water">💧 +5 water (2🪙)</button>
+        <button data-buy="dark">🐔 Dark hen (25🪙)</button>
+        <button data-buy="white">🐔 White hen (25🪙)</button>
+      </div>
+      <p class="hint"><button id="reset" style="font-size:.75rem;padding:3px 8px">Restart game</button></p>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+<div id="overlay"><div class="panel">
+  <h2 id="ov-title">🐔 Welcome, Yahav!</h2>
+  <div id="ov-body">
+    <p>You run a farm full of <b>dark</b> and <b>white</b> chickens.</p>
+    <ol>
+      <li>🌾 <b>Feed</b> and 💧 <b>water</b> your chickens so they lay eggs.</li>
+      <li>🧺 <b>Collect</b> the eggs — dark hens lay black eggs, white hens lay white eggs.</li>
+      <li>🥚 <b>Sort</b> them into the black pile and the white pile, then ship <b>orders</b> for coins.</li>
+      <li>🔥 Put eggs in the <b>incubator</b>, keep them warm, hatch chicks and raise them into new chickens!</li>
+    </ol>
+    <p>Finish all the missions to win the Golden Egg 🏆</p>
+  </div>
+  <button id="ov-btn">Let's go!</button>
+</div></div>
+
+<script>
+(() => {
+  const SAVE_KEY = 'yahav-chickens-v1';
+  const COOP_W = () => coopEl.clientWidth, COOP_H = () => coopEl.clientHeight;
+  const $ = s => document.querySelector(s);
+  const coopEl = $('#coop');
+
+  // ---------- art ----------
+  const CHICKEN_COLORS = {
+    dark:  { body: '#3a302b', wing: '#241d19', stroke: '#120d0a' },
+    white: { body: '#fbfbf7', wing: '#e6e3da', stroke: '#9a958a' },
+  };
+  function chickenSVG(color, chick) {
+    const c = CHICKEN_COLORS[color];
+    if (chick) {
+      const body = color === 'dark' ? '#5b524c' : '#fde68a';
+      return `<svg viewBox="0 0 60 50"><ellipse cx="30" cy="32" rx="18" ry="15" fill="${body}" stroke="${c.stroke}" stroke-width="1.5"/>
+        <circle cx="40" cy="18" r="11" fill="${body}" stroke="${c.stroke}" stroke-width="1.5"/>
+        <circle cx="43" cy="16" r="2" fill="#000"/><polygon points="50,18 57,20 50,22" fill="#f97316"/>
+        <line x1="25" y1="46" x2="23" y2="50" stroke="#f97316" stroke-width="2"/><line x1="35" y1="46" x2="37" y2="50" stroke="#f97316" stroke-width="2"/></svg>`;
+    }
+    return `<svg viewBox="0 0 80 70">
+      <path d="M8 30 Q2 14 14 18 Q12 26 18 30Z" fill="${c.wing}" stroke="${c.stroke}" stroke-width="1.5"/>
+      <ellipse cx="36" cy="40" rx="26" ry="20" fill="${c.body}" stroke="${c.stroke}" stroke-width="2"/>
+      <path d="M24 38 Q36 30 46 40 Q36 50 24 38Z" fill="${c.wing}" stroke="${c.stroke}" stroke-width="1.5"/>
+      <circle cx="58" cy="22" r="12" fill="${c.body}" stroke="${c.stroke}" stroke-width="2"/>
+      <path d="M52 11 Q54 3 58 9 Q61 2 64 10 Q68 6 66 13Z" fill="#e11d48"/>
+      <path d="M66 28 Q69 34 64 34 Q62 30 66 28Z" fill="#e11d48"/>
+      <circle cx="61" cy="20" r="2.4" fill="${color === 'dark' ? '#fde047' : '#000'}"/>
+      <polygon points="69,20 78,23 69,26" fill="#f59e0b"/>
+      <line x1="30" y1="59" x2="28" y2="68" stroke="#f59e0b" stroke-width="3"/><line x1="42" y1="59" x2="44" y2="68" stroke="#f59e0b" stroke-width="3"/>
+    </svg>`;
+  }
+  function eggSVG(color, cracked) {
+    const fill = color === 'black' ? '#262626' : '#ffffff';
+    const stroke = color === 'black' ? '#000' : '#a8a29e';
+    const shine = color === 'black' ? '#ffffff55' : '#e7e5e4';
+    return `<svg viewBox="0 0 30 36"><path d="M15 2 C25 2 28 20 28 24 C28 31 22 34 15 34 C8 34 2 31 2 24 C2 20 5 2 15 2Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>
+      <ellipse cx="10" cy="13" rx="3" ry="5" fill="${shine}"/>${cracked ? '<path d="M4 20 L10 17 L14 22 L19 16 L26 20" stroke="#dc2626" stroke-width="2" fill="none"/>' : ''}</svg>`;
+  }
+  const eggColorOf = c => c === 'dark' ? 'black' : 'white';
+
+  // ---------- state ----------
+  let S, nextId = 1;
+  function newState() {
+    const s = {
+      coins: 10, feed: 12, water: 12, chickens: [], groundEggs: [], basket: [],
+      piles: { black: [], white: [] }, orders: [], incubator: [null, null],
+      stats: { collected: 0, shipped: 0, hatched: 0, grown: 0 }, won: false, nextId: 1,
+    };
+    return s;
+  }
+  function makeChicken(color, chick = false) {
+    return { id: S.nextId++, color, chick, food: chick ? 70 : 60, water: chick ? 70 : 60, egg: 0, grow: 0,
+      x: 40 + Math.random() * Math.max(100, COOP_W() - 120), y: 50 + Math.random() * Math.max(100, COOP_H() - 140), flip: Math.random() < .5 };
+  }
+  function load() {
+    try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); return true; } } catch (e) {}
+    return false;
+  }
+  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+  function fresh() {
+    S = newState();
+    ['dark', 'white', 'dark', 'white'].forEach(c => S.chickens.push(makeChicken(c)));
+    while (S.orders.length < 3) S.orders.push(makeOrder());
+  }
+
+  // ---------- missions ----------
+  const MISSIONS = [
+    { text: 'Collect 5 eggs', check: () => S.stats.collected >= 5 },
+    { text: 'Ship 2 orders', check: () => S.stats.shipped >= 2 },
+    { text: 'Hatch a chick in the incubator', check: () => S.stats.hatched >= 1 },
+    { text: 'Raise a chick into a grown chicken', check: () => S.stats.grown >= 1 },
+    { text: 'Ship 8 orders', check: () => S.stats.shipped >= 8 },
+    { text: 'Have 10 grown chickens on the farm', check: () => S.chickens.filter(c => !c.chick).length >= 10 },
+  ];
+
+  // ---------- orders ----------
+  const CUSTOMERS = ['🧑‍🍳 Baker', '👵 Grandma', '🏪 Market', '🍳 Café', '🎂 Cake shop', '🏫 School'];
+  function makeOrder() {
+    const lvl = Math.min(4, Math.floor(S.stats.shipped / 2));
+    let black = Math.floor(Math.random() * (3 + lvl)), white = Math.floor(Math.random() * (3 + lvl));
+    if (black + white < 2) { Math.random() < .5 ? black += 2 : white += 2; }
+    return { id: S.nextId++, who: CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)], black, white, reward: black * 3 + white * 2 + 3 };
+  }
+
+  // ---------- UI helpers ----------
+  let tool = 'feed', selectedEgg = null;
+  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200); }
+  function floatText(x, y, text, color = '#16a34a') {
+    const f = document.createElement('div'); f.className = 'float'; f.textContent = text; f.style.left = x + 'px'; f.style.top = y + 'px'; f.style.color = color;
+    coopEl.appendChild(f); setTimeout(() => f.remove(), 1000);
+  }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // ---------- coop rendering ----------
+  const chickenEls = new Map();
+  function renderCoop() {
+    const alive = new Set();
+    for (const c of S.chickens) {
+      alive.add(c.id);
+      let el = chickenEls.get(c.id);
+      if (!el) {
+        el = document.createElement('div'); el.className = 'chicken';
+        el.innerHTML = `<span class="mood"></span><div class="svg"></div><div class="bars"><div class="bar food"><i></i></div><div class="bar water"><i></i></div><div class="bar egg"><i></i></div></div>`;
+        el.addEventListener('click', () => careFor(c.id));
+        coopEl.appendChild(el); chickenEls.set(c.id, el); el._chick = null;
+      }
+      if (el._chick !== c.chick) {
+        el._chick = c.chick; el.classList.toggle('chick', c.chick);
+        el.querySelector('.svg').innerHTML = chickenSVG(c.color, c.chick);
+        el.querySelector('.bar.egg').className = 'bar ' + (c.chick ? 'grow' : 'egg');
+      }
+      el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
+      el.classList.toggle('flip', c.flip);
+      const bars = el.querySelectorAll('.bar i');
+      bars[0].style.width = c.food + '%'; bars[1].style.width = c.water + '%'; bars[2].style.width = (c.chick ? c.grow : c.egg) + '%';
+      const mood = c.food < 25 ? '🌾' : c.water < 25 ? '💧' : (c.food > 50 && c.water > 50 ? '❤️' : '');
+      el.querySelector('.mood').textContent = mood;
+      el.title = `${c.color} ${c.chick ? 'chick' : 'chicken'} — food ${Math.round(c.food)}%, water ${Math.round(c.water)}%`;
+    }
+    for (const [id, el] of chickenEls) if (!alive.has(id)) { el.remove(); chickenEls.delete(id); }
+
+    coopEl.querySelectorAll('.ground-egg').forEach(e => { if (!S.groundEggs.find(g => g.id == e.dataset.id)) e.remove(); });
+    for (const g of S.groundEggs) {
+      if (coopEl.querySelector(`.ground-egg[data-id="${g.id}"]`)) continue;
+      const e = document.createElement('div'); e.className = 'ground-egg'; e.dataset.id = g.id;
+      e.style.left = g.x + 'px'; e.style.top = g.y + 'px'; e.innerHTML = eggSVG(g.color);
+      e.addEventListener('click', ev => { ev.stopPropagation(); collectEgg(g.id); });
+      coopEl.appendChild(e);
+    }
+  }
+
+  function renderPanels() {
+    $('#coins').textContent = S.coins; $('#feed').textContent = S.feed; $('#water').textContent = S.water;
+    $('#ccount').textContent = S.chickens.filter(c => !c.chick).length + (S.chickens.some(c => c.chick) ? ` (+${S.chickens.filter(c => c.chick).length} 🐣)` : '');
+    // basket
+    const sig = JSON.stringify([S.basket, selectedEgg, S.piles, S.orders.map(o => o.id), S.stats, S.chickens.length, tool, S.incubator.map(Boolean)]);
+    if (sig !== renderPanels._sig) { renderPanels._sig = sig; renderStatic(); }
+    renderIncubator();
+  }
+  function renderStatic() {
+    const b = $('#basket'); b.innerHTML = '';
+    if (!S.basket.length) b.innerHTML = '<span class="hint">Empty — collect eggs from the coop!</span>';
+    S.basket.forEach((col, i) => {
+      const e = document.createElement('div'); e.className = 'egg' + (selectedEgg === i ? ' selected' : ''); e.innerHTML = eggSVG(col);
+      e.title = col + ' egg'; e.addEventListener('click', () => { selectedEgg = selectedEgg === i ? null : i; renderPanels(); });
+      b.appendChild(e);
+    });
+    $('#bcount').textContent = `(${S.basket.length}/12)`;
+    document.querySelectorAll('.pile, .slot').forEach(p => p.classList.toggle('target', selectedEgg !== null));
+    // piles
+    for (const col of ['black', 'white']) {
+      $('#pile-' + col).innerHTML = S.piles[col].map(() => `<span class="egg">${eggSVG(col)}</span>`).join('');
+      $('#pc-' + col).textContent = `${S.piles[col].length} / 10 eggs`;
+    }
+    // orders
+    const o = $('#orders'); o.innerHTML = '';
+    S.orders.forEach(ord => {
+      const ok = S.piles.black.length >= ord.black && S.piles.white.length >= ord.white;
+      const d = document.createElement('div'); d.className = 'order';
+      d.innerHTML = `<div><div>${ord.who}</div><div class="need">${ord.black ? ord.black + ' ⚫ ' : ''}${ord.white ? ord.white + ' ⚪' : ''}</div></div>
+        <div class="reward">+${ord.reward}🪙</div>`;
+      const btn = document.createElement('button'); btn.textContent = 'Ship 🚚'; btn.disabled = !ok;
+      btn.addEventListener('click', () => ship(ord.id)); d.appendChild(btn); o.appendChild(d);
+    });
+    // missions
+    $('#missions').innerHTML = MISSIONS.map(m => `<li class="${m.check() ? 'done' : ''}">${m.check() ? '✅' : '⬜'} ${m.text}</li>`).join('');
+    // tools
+    $('#tool-feed').classList.toggle('active', tool === 'feed'); $('#tool-water').classList.toggle('active', tool === 'water');
+  }
+
+  function renderIncubator() {
+    const inc = $('#incubator');
+    if (inc.children.length !== 2) {
+      inc.innerHTML = '';
+      for (let i = 0; i < 2; i++) {
+        const s = document.createElement('div'); s.className = 'slot'; s.dataset.slot = i;
+        s.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') placeInIncubator(i); });
+        inc.appendChild(s);
+      }
+    }
+    S.incubator.forEach((slot, i) => {
+      const s = inc.children[i];
+      s.classList.toggle('target', selectedEgg !== null && !slot);
+      const key = slot ? slot.color : 'empty';
+      if (s._key !== key) {
+        s._key = key;
+        if (!slot) { s.innerHTML = `<b>Slot ${i + 1}</b><div style="font-size:30px;opacity:.4">🥚</div><small>Empty — put an egg here</small>`; return; }
+        s.innerHTML = `<b>Slot ${i + 1}</b><div>${eggSVG(slot.color).replace('<svg', '<svg width="26" height="32"')}</div>
+          <div class="heat"><b></b></div><small class="zone"></small><div class="prog"><i></i></div>`;
+        const btn = document.createElement('button'); btn.textContent = '🔥 Warm';
+        btn.addEventListener('click', () => { const sl = S.incubator[i]; if (sl) { sl.heat = clamp(sl.heat + 14, 0, 100); renderIncubator(); } });
+        s.appendChild(btn);
+      }
+      if (!slot) return;
+      s.querySelector('.heat b').style.left = `calc(${slot.heat}% - 2px)`;
+      s.querySelector('.prog i').style.width = slot.prog + '%';
+      s.querySelector('.zone').textContent = slot.heat < 35 ? '🥶 Too cold' : slot.heat > 75 ? '🥵 Too hot!' : '😊 Just right';
+    });
+  }
+
+  // ---------- actions ----------
+  function careFor(id) {
+    const c = S.chickens.find(c => c.id === id); if (!c) return;
+    const el = chickenEls.get(id); el.classList.add('selected'); setTimeout(() => el.classList.remove('selected'), 300);
+    if (tool === 'feed') {
+      if (c.food >= 95) return floatText(c.x, c.y, 'Full!', '#78716c');
+      if (S.feed <= 0) return toast('Out of feed! Buy more in the shop 🛒');
+      S.feed--; c.food = clamp(c.food + 40, 0, 100); floatText(c.x + 20, c.y, '🌾 yum!');
+    } else {
+      if (c.water >= 95) return floatText(c.x, c.y, 'Not thirsty', '#78716c');
+      if (S.water <= 0) return toast('Out of water! Buy more in the shop 🛒');
+      S.water--; c.water = clamp(c.water + 40, 0, 100); floatText(c.x + 20, c.y, '💧 gulp!', '#2563eb');
+    }
+    update();
+  }
+  function careAll(kind) {
+    let n = 0;
+    for (const c of S.chickens) {
+      if (kind === 'feed' && c.food < 60 && S.feed > 0) { S.feed--; c.food = clamp(c.food + 40, 0, 100); n++; floatText(c.x + 20, c.y, '🌾'); }
+      if (kind === 'water' && c.water < 60 && S.water > 0) { S.water--; c.water = clamp(c.water + 40, 0, 100); n++; floatText(c.x + 20, c.y, '💧', '#2563eb'); }
+    }
+    if (!n) toast(kind === 'feed' ? (S.feed ? 'Nobody is hungry right now' : 'Out of feed!') : (S.water ? 'Nobody is thirsty right now' : 'Out of water!'));
+    update();
+  }
+  function collectEgg(id) {
+    if (S.basket.length >= 12) return toast('Basket is full! Sort some eggs into piles first.');
+    const i = S.groundEggs.findIndex(g => g.id === id); if (i < 0) return;
+    const g = S.groundEggs.splice(i, 1)[0]; S.basket.push(g.color); S.stats.collected++;
+    floatText(g.x, g.y, '+1 🥚'); update();
+  }
+  function putInPile(col) {
+    if (selectedEgg === null) return toast('First click an egg in the basket 🧺');
+    const egg = S.basket[selectedEgg];
+    if (egg !== col) {
+      S.basket.splice(selectedEgg, 1); selectedEgg = null;
+      toast(`💥 Crack! A ${egg} egg doesn't belong in the ${col} pile.`); return update();
+    }
+    if (S.piles[col].length >= 10) return toast('That pile is full — ship an order!');
+    S.basket.splice(selectedEgg, 1); S.piles[col].push(1); selectedEgg = null; update();
+  }
+  function placeInIncubator(i) {
+    if (S.incubator[i]) return;
+    if (selectedEgg === null) return toast('First click an egg in the basket 🧺');
+    S.incubator[i] = { color: S.basket[selectedEgg], heat: 55, prog: 0 };
+    S.basket.splice(selectedEgg, 1); selectedEgg = null; update();
+  }
+  function ship(id) {
+    const i = S.orders.findIndex(o => o.id === id); const o = S.orders[i];
+    if (S.piles.black.length < o.black || S.piles.white.length < o.white) return;
+    S.piles.black.splice(0, o.black); S.piles.white.splice(0, o.white);
+    S.coins += o.reward; S.stats.shipped++; S.orders.splice(i, 1, makeOrder());
+    toast(`🚚 Delivered to ${o.who}! +${o.reward}🪙`); update();
+  }
+  function buy(what) {
+    const price = { feed: 4, water: 2, dark: 25, white: 25 }[what];
+    if (S.coins < price) return toast('Not enough coins 🪙 — ship some orders!');
+    S.coins -= price;
+    if (what === 'feed') S.feed += 5; else if (what === 'water') S.water += 5;
+    else { S.chickens.push(makeChicken(what)); toast(`A new ${what} hen joined the farm!`); }
+    update();
+  }
+
+  // ---------- simulation ----------
+  function tick(dt) {
+    for (const c of S.chickens) {
+      c.food = clamp(c.food - dt * (c.chick ? 2.2 : 1.6), 0, 100);
+      c.water = clamp(c.water - dt * (c.chick ? 2.6 : 2.0), 0, 100);
+      const happy = c.food > 25 && c.water > 25;
+      if (c.chick) {
+        if (happy) c.grow += dt * 3.2;
+        if (c.grow >= 100) { c.chick = false; c.grow = 0; S.stats.grown++; toast(`🎉 Your ${c.color} chick grew into a chicken!`); }
+      } else if (happy) {
+        c.egg += dt * 7;
+        if (c.egg >= 100) {
+          c.egg = 0;
+          if (S.groundEggs.length < 20) S.groundEggs.push({ id: S.nextId++, color: eggColorOf(c.color), x: clamp(c.x + 10, 4, COOP_W() - 32), y: clamp(c.y + 46, 4, COOP_H() - 38) });
+        }
+      }
+    }
+    S.incubator.forEach((slot, i) => {
+      if (!slot) return;
+      slot.heat = clamp(slot.heat - dt * 5, 0, 100);
+      if (slot.heat >= 35 && slot.heat <= 75) slot.prog += dt * 6;
+      else if (slot.heat > 90) { S.incubator[i] = null; toast('🥵 The egg got too hot and cracked! Watch the heat.'); return; }
+      if (slot.prog >= 100) {
+        const color = slot.color === 'black' ? 'dark' : 'white';
+        S.incubator[i] = null; S.chickens.push(makeChicken(color, true)); S.stats.hatched++;
+        toast(`🐣 A ${color} chick hatched! Feed and water it so it grows.`);
+      }
+    });
+  }
+  function wander() {
+    for (const c of S.chickens) {
+      if (Math.random() < .5) continue;
+      const nx = clamp(c.x + (Math.random() - .5) * 160, 4, COOP_W() - 74);
+      c.flip = nx < c.x; c.x = nx;
+      c.y = clamp(c.y + (Math.random() - .5) * 100, 30, COOP_H() - 80);
+    }
+    renderCoop();
+  }
+
+  function update() { renderCoop(); renderPanels(); checkWin(); save(); }
+  function checkWin() {
+    if (!S.won && MISSIONS.every(m => m.check())) {
+      S.won = true;
+      $('#ov-title').textContent = '🏆 You win, Yahav!';
+      $('#ov-body').innerHTML = '<p style="font-size:60px;text-align:center;margin:0">🥚✨</p><p>You built a huge, happy chicken farm and earned the <b>Golden Egg</b>! Keep playing to grow your farm even bigger.</p>';
+      $('#ov-btn').textContent = 'Keep farming';
+      $('#overlay').classList.remove('hidden');
+    }
+  }
+
+  // ---------- wiring ----------
+  $('#tool-feed').onclick = () => { tool = 'feed'; renderPanels(); };
+  $('#tool-water').onclick = () => { tool = 'water'; renderPanels(); };
+  $('#feed-all').onclick = () => careAll('feed');
+  $('#water-all').onclick = () => careAll('water');
+  document.querySelectorAll('.pile').forEach(p => p.addEventListener('click', () => putInPile(p.dataset.pile)));
+  document.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => buy(b.dataset.buy)));
+  $('#ov-btn').onclick = () => $('#overlay').classList.add('hidden');
+  $('#reset').onclick = () => { if (confirm('Start a brand new farm?')) { fresh(); selectedEgg = null; update(); } };
+
+  if (load()) $('#overlay').classList.add('hidden'); else fresh();
+  update();
+  let last = performance.now();
+  setInterval(() => { const now = performance.now(); tick(Math.min(2, (now - last) / 1000)); last = now; renderCoop(); renderPanels(); }, 250);
+  setInterval(() => { wander(); save(); }, 2000);
+})();
+</script>
+</body>
+</html>
